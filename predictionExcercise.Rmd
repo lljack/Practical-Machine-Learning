@@ -6,13 +6,16 @@ output: html_document
 ---
 
 ## 1.Overview
-One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. Data for the project is from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The report will indicate to predict the manner in which they did the exercise. This is the "classe" variable in the training set. K-means clustering is used for the prediction.
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. Data for the project is from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The report will indicate to predict the manner in which they did the exercise. This is the "classe" variable in the training set. 
 
-##2.Analysis
+## 2.Analysis
 First of all, the tools required are loaded.
 ```{r}
 library(caret)
 library(ggplot2)
+library(rpart)
+library(randomForest)
+library(rpart.plot) 
 ```
 
 Then, the data is loaded for both training and testing. 
@@ -21,7 +24,7 @@ testing <- read.csv("pml-testing.csv")
 training <- read.csv("pml-training.csv")
 ```
 
-Then, the structure of the training data is checked.
+The structure of the training data is checked.
 ```{r}
 str(training)
 summary(training$classe)
@@ -34,21 +37,34 @@ training2 <- training[ , colSums(is.na(training)) == 0]
 write.csv(training2,file="training2.csv")
 training3 = read.csv("training2.csv",header = TRUE,na.strings = c("NA","NaN","","#DIV/0!"))
 training4 <- training3[ , colSums(is.na(training3)) == 0]
+training4 <- training4[,8:61]
 ```
 
-In order to categolize the data with five clusters, k-means clustring will be tried.
+The training data is separedted into training and testing part.
 ```{r}
-kMeans1 <- kmeans(training4[,c(1:2,4:5,8:60)],centers=5)
-training4$clusters <- as.factor(kMeans1$cluster)
-qplot(classe,colour=clusters,data=training4)
+set.seed(22519) 
+inTrain <- createDataPartition(training4$classe, p=0.70, list=F) 
+trainData <- training4[inTrain, ] 
+testData <- training4[-inTrain, ]
 ```
-We can see the clustering dose not work well.
 
-To check further, cross table is built. The data shows the k-means clustering does not separate the data well, according to "classe". 
+Prediction is conducted by the Decision Tree.
 ```{r}
-modFit <- train(clusters~.,data=subset(training4,select=-c(classe)),method="rpart")
-table(predict(modFit,training4),training4$classe)
+model_tree <- rpart(classe~.,data=trainData,method="class")
+prediction_tree <- predict(model_tree, testData, type="class")
+class_tree <- confusionMatrix(prediction_tree, testData$classe) 
+class_tree
 ```
+The accuracy was 76.8%.
 
-##3.Conclusion
-This report tried to predict the data by using the k-means clusitring, but it did not work well. Further reserch and other method shold be needed.
+Then, prediction is tried by the random forest.
+```{r}
+forest_model <- randomForest(classe ~ ., data=trainData, method="class") 
+prediction_forest <- predict(forest_model, testData, type="class") 
+random_forest <- confusionMatrix(prediction_forest, testData$classe) 
+random_forest
+```
+The accuracy was 99.6%.
+
+## 3.Conclusion
+This report tried to predict the data by using Decision Tree and Random Forest, and indicated that Random Forest was much better (99.6%) than Decesion tree (76.8%), regarding the accuracy.
